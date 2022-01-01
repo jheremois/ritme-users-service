@@ -141,3 +141,72 @@ export const editUser = async (req: Request, res: Response) => {
     res.status(500).send("Internal error")
 
 }
+
+export const getPosts = async (req: Request, res: Response)=>{
+  pool.query(`
+    SELECT * FROM posts
+    ORDER BY upload_time DESC
+  `, (err, response)=>{
+    err
+    ?
+      res.json(err)
+    :
+      res.json(response)
+  })
+}
+
+export const createPost = async (req: Request, res: Response)=>{
+
+  const { post_description, post_tag, post_image } = req.body
+  const token: any = req.headers["user_token"]
+  let jwtPlayload: any = verify(token, conf.CLIENT_SECRET)
+
+  pool.query(`
+    INSERT INTO posts SET?
+  `,{
+    user_id: jwtPlayload.user_id,
+    post_description,
+    post_image,
+    post_tag,
+  }, (err, response)=>{
+    err
+    ?
+      res.json(err)
+    :
+      res.json(response)
+  })
+}
+
+export const getMyPosts = async (req: Request, res: Response)=>{
+
+  const token: any = req.headers["user_token"]
+  let jwtPlayload: any = verify(token, conf.CLIENT_SECRET)
+
+  pool.query(`
+    SELECT * FROM posts 
+    WHERE user_id = '${jwtPlayload.user_id}
+    ORDER BY upload_time DESC
+  `, (err, response)=>{
+    err
+    ?
+      res.json(err)
+    :
+      res.json(response)
+  })
+}
+
+export const getUserPosts = async (req: Request, res: Response)=>{
+
+  const {user_id} = req.params
+
+  pool.query(`
+    SELECT * FROM posts 
+    WHERE user_id = '${user_id}'
+  `, (err, response)=>{
+    err
+    ?
+      res.json(err)
+    :
+      res.json(response)
+  })
+}

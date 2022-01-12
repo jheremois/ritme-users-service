@@ -3,8 +3,36 @@ import { pool } from '../config/database';
 import { userType } from '../models/interfaces/user.type';
 import { verify } from "jsonwebtoken";
 import appConfig from "../config/environments";
+import {Storage} from "@google-cloud/storage";
+const fs = require("fs")
+const bucketName = process.env.BUCKET_NAME!;
 
+const gcsKey = JSON.parse(
+  Buffer.from(process.env.GCP_CRED_FILE!, 'base64').toString()
+)
+
+const storage = new Storage({
+  credentials: {
+    client_email: gcsKey.client_email,
+    private_key: gcsKey.private_key
+  },
+  projectId: gcsKey.project_id
+})
+
+const ProfileBucket = storage.bucket(bucketName)
 const conf = appConfig.passport.JWT
+
+/*
+ProfileBucket.makePublic((err, files)=> {
+  err
+    ?
+      console.log("Bucket public err: ",err)
+    :
+      console.log("Bucket public res: ",files)
+})
+*/
+
+
 
 export const getUsers = async (_req: Request, res: Response) => {
 
@@ -75,7 +103,6 @@ export const getUser = async (req: Request, res: Response) => {
 
 }
 
-
 export const getMe = async (req: Request, res: Response) => {
 
   const token: any = req.headers["user_token"];
@@ -118,95 +145,60 @@ export const editUser = async (req: Request, res: Response) => {
 
   const { user_description, user_name, profile_pic } = req.body
   const token: any = req.headers["user_token"]
+  const imgData = profile_pic;
+  const base64Data: string | null = profile_pic?imgData.replace(/^data:image\/png;base64,/, ""):false
   let jwtPlayload: any = verify(token, conf.CLIENT_SECRET)
 
-  user_name && profile_pic
+  user_name
   ?
   user_name.length > 2
-    ?
-      pool.query(`
-        UPDATE profiles
-        SET user_description= '${user_description || ""}', user_name= '${user_name}', profile_pic= '${profile_pic}'
-        WHERE user_id = ${jwtPlayload.user_id}
-      `, (err, response: userType[])=>{
-        response
-          ?
-            res.status(200).json(response)
-          :
-            res.status(402).json("User name allready selected")
-      })
+    ? 
+      profile_pic && profile_pic.includes("base64")
+        ?
+          fs.writeFile("profile_pic.png", base64Data, 'base64', 
+            (err: any, data: any)=> {
+              if (err) {
+                  console.log('err: ', err);
+              }else{
+                console.log('success: ', data);
+                ProfileBucket.upload("profile_pic.png", {
+                  destination: `${base64Data?.slice(130, 150)}.png`,
+                }).then((bucketRes)=>{
+                  pool.query(`
+                    UPDATE profiles
+                    SET user_description= '${user_description || ""}', user_name= '${user_name}', profile_pic= 'https://storage.googleapis.com/ritme-profiles/${bucketRes[0].id}'
+                    WHERE user_id = ${jwtPlayload.user_id}
+                  `, 
+                    (err, response: userType[])=>{
+                      response
+                        ?
+                          res.status(200).json(response)
+                        :
+                          res.status(402).json("User name allready selected")
+                    }
+                  )
+                }).catch((err)=>{
+                  res.status(402).json("User name allready selected")
+                })
+              }
+            }
+          )
+        :
+          pool.query(`
+              UPDATE profiles
+              SET user_description= '${user_description || ""}', user_name= '${user_name}'
+              WHERE user_id = ${jwtPlayload.user_id}
+            `, 
+            (err, response: userType[])=>{
+              response
+                ?
+                  res.status(200).json(response)
+                :
+                  res.status(402).json("User name allready selected")
+            }
+          )
     :
       res.status(403).json("Name field is failing")
   :
     res.status(500).send("Internal error")
-
-}
-
-export const getPosts = async (req: Request, res: Response)=>{
-  pool.query(`
-    SELECT * FROM posts
-    ORDER BY upload_time DESC
-  `, (err, response)=>{
-    err
-    ?
-      res.json(err)
-    :
-      res.json(response)
-  })
-}
-
-export const createPost = async (req: Request, res: Response)=>{
-
-  const { post_description, post_tag, post_image } = req.body
-  const token: any = req.headers["user_token"]
-  let jwtPlayload: any = verify(token, conf.CLIENT_SECRET)
-
-  pool.query(`
-    INSERT INTO posts SET?
-  `,{
-    user_id: jwtPlayload.user_id,
-    post_description,
-    post_image,
-    post_tag,
-  }, (err, response)=>{
-    err
-    ?
-      res.json(err)
-    :
-      res.json(response)
-  })
-}
-
-export const getMyPosts = async (req: Request, res: Response)=>{
-
-  const token: any = req.headers["user_token"]
-  let jwtPlayload: any = verify(token, conf.CLIENT_SECRET)
-
-  pool.query(`
-    SELECT * FROM posts 
-    WHERE user_id = '${jwtPlayload.user_id}
-    ORDER BY upload_time DESC
-  `, (err, response)=>{
-    err
-    ?
-      res.json(err)
-    :
-      res.json(response)
-  })
-}
-
-export const getUserPosts = async (req: Request, res: Response)=>{
-
-  const {user_id} = req.params
-
-  pool.query(`
-    SELECT * FROM posts 
-    WHERE user_id = '${user_id}'
-  `, (err, response)=>{
-    err
-    ?
-      res.json(err)
-    :
-      res.json(response)
-  })
 }

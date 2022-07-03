@@ -41,7 +41,7 @@ export const getUsers = async (_req: Request, res: Response) => {
     FROM users AS s1
     INNER JOIN profiles AS s2
     ON s1.user_id = s2.user_id;`
-  , (err, response: userType[])=>{
+  , (err: any, response: userType[])=>{
     response.length < 1
     ?
       res.status(400).json(
@@ -77,7 +77,7 @@ export const getUser = async (req: Request, res: Response) => {
     INNER JOIN profiles AS s2
     ON s1.user_id = s2.user_id
     WHERE s1.user_id AND s2.user_id = ${id}`
-  , (err, response: userType[])=>{
+  , (err: any, response: userType[])=>{
     response.length < 1
     ?
       res.status(401).json(
@@ -114,7 +114,7 @@ export const getMe = async (req: Request, res: Response) => {
     INNER JOIN profiles AS s2
     ON s1.user_id = s2.user_id
     WHERE s1.user_id AND s2.user_id = ${jwtPlayload.user_id}`
-  , (err, response: userType[])=>{
+  , (err: any, response: userType[])=>{
     response.length < 1
     ?
       res.status(402).json(
@@ -146,7 +146,7 @@ export const editUser = async (req: Request, res: Response) => {
   const { user_description, user_name, profile_pic } = req.body
   const token: any = req.headers["user_token"]
   const imgData = profile_pic;
-  const base64Data: string | null = profile_pic?imgData.replace(/^data:image\/png;base64,/, ""):false
+  const base64Data: string | null = profile_pic?imgData.replace(/^data:image\/[a-z]+;base64,/, ""):false
   let jwtPlayload: any = verify(token, conf.CLIENT_SECRET)
 
   user_name
@@ -169,16 +169,16 @@ export const editUser = async (req: Request, res: Response) => {
                     SET user_description= '${user_description || ""}', user_name= '${user_name}', profile_pic= 'https://storage.googleapis.com/ritme-profiles/${bucketRes[0].id}'
                     WHERE user_id = ${jwtPlayload.user_id}
                   `, 
-                    (err, response: userType[])=>{
+                    (err: any, response: userType[])=>{
                       response
                         ?
                           res.status(200).json(response)
                         :
-                          res.status(402).json("User name allready selected")
+                          res.status(402).json("User name already selected")
                     }
                   )
                 }).catch((err)=>{
-                  res.status(402).json("User name allready selected")
+                  res.status(402).json("User name already selected")
                 })
               }
             }
@@ -189,12 +189,12 @@ export const editUser = async (req: Request, res: Response) => {
               SET user_description= '${user_description || ""}', user_name= '${user_name}'
               WHERE user_id = ${jwtPlayload.user_id}
             `, 
-            (err, response: userType[])=>{
+            (err: any, response: userType[])=>{
               response
                 ?
                   res.status(200).json(response)
                 :
-                  res.status(402).json("User name allready selected")
+                  res.status(402).json("User name already selected")
             }
           )
     :

@@ -78,27 +78,36 @@ export const getUser = async (req: Request, res: Response) => {
     ON s1.user_id = s2.user_id
     WHERE s1.user_id AND s2.user_id = ${id}`
   , (err: any, response: userType[])=>{
-    response.length < 1
-    ?
-      res.status(401).json(
+    if(response)
+      response.length < 1
+        ?
+          res.status(401).json(
+            {
+              data: "No user where found"
+            }
+          )
+        :
+          err
+            ?
+              res.status(402).json(
+                {
+                  data: err
+                }
+              )
+            : 
+              res.status(200).json(
+                {
+                  response: response
+                }
+              )
+    else{
+      res.status(500).json(
         {
-          data: "No user where found"
+          data: "No user response"
         }
       )
-    :
-      err
-        ?
-          res.status(402).json(
-            {
-              data: err
-            }
-          )
-        : 
-          res.status(200).json(
-            {
-              response: response
-            }
-          )
+    }
+      
   })
 
 }
